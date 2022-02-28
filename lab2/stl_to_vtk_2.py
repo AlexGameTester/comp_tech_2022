@@ -23,7 +23,8 @@ class CalcMesh:
 
         # Тут может быть скорость, но сейчас здесь нули
         self.velocity = np.zeros(shape=(3, int(len(nodes_coords) / 3)), dtype=np.double)
-        self.velocity[2] = 10*np.sin(self.nodes[0, :] + self.nodes[1, :] - self.t) * np.cos(self.nodes[2, :])
+
+        # self.velocity[2] = 10*np.sin(self.nodes[0, :] + self.nodes[1, :] - self.t) * np.cos(self.nodes[2, :])
 
         self.acceleration = np.zeros_like(self.velocity[2])
 
@@ -34,15 +35,17 @@ class CalcMesh:
     # Метод отвечает за выполнение для всей сетки шага по времени величиной tau
     def move(self, tau):
         self.t += tau
-        A = 10
-        omega = 600
-        self.velocity[2] = A * np.sin(0.1*(self.nodes[0, :] + self.nodes[1, :]) - omega * self.t) * \
-                           np.cos(0.1 * self.nodes[2, :] - omega * self.t)
+        A = 20
+        T = 0.8
+        omega = 2 * np.pi / T
+        k = 0.1
+        v = lambda t: A * np.cos(np.pi/4 - omega * t) * np.cos(k*(self.nodes[0, :] + self.nodes[1, :]))
+        self.velocity[2] = v(self.t)
+        # self.velocity[2] = A * np.sin(0.1 * (self.nodes[0, :] + self.nodes[1, :]) - omega * self.t) * \
+        #                    np.cos(0.1 * self.nodes[2, :] - omega * self.t)
+        dt = 0.001
+        self.acceleration = (v(self.t + dt) - v(self.t)) / dt
 
-        if self.t > tau:
-            self.acceleration = (self.velocity[2] - self.prev_velocity) / tau
-
-        self.prev_velocity = self.velocity[2]
         self.nodes += self.velocity * tau
 
     # Метод отвечает за запись текущего состояния сетки в снапшот в формате VTK
@@ -68,7 +71,7 @@ class CalcMesh:
         # Делаем это максимально неэффективным, зато наглядным образом
         for i in range(0, len(self.nodes[0])):
             # Вставляем новую точку в сетку VTK-снапшота
-            points.InsertNextPoint(self.nodes[0,i], self.nodes[1,i], self.nodes[2,i])
+            points.InsertNextPoint(self.nodes[0, i], self.nodes[1, i], self.nodes[2, i])
             # Добавляем значение скалярного поля в этой точке
             smth.InsertNextValue(self.smth[i])
             # Добавляем значение векторного поля в этой точке
@@ -88,7 +91,7 @@ class CalcMesh:
         for i in range(0, len(self.tetrs[0])):
             tetr = vtk.vtkTetra()
             for j in range(0, 4):
-                tetr.GetPointIds().SetId(j, self.tetrs[j,i])
+                tetr.GetPointIds().SetId(j, self.tetrs[j, i])
             unstructuredGrid.InsertNextCell(tetr.GetCellType(), tetr.GetPointIds())
 
         # Создаём снапшот в файле с заданным именем
@@ -117,7 +120,8 @@ angle = 40
 forceParametrizablePatches = False
 includeBoundary = True
 curveAngle = 180
-gmsh.model.mesh.classifySurfaces(angle * math.pi / 180., includeBoundary, forceParametrizablePatches, curveAngle * math.pi / 180.)
+gmsh.model.mesh.classifySurfaces(angle * math.pi / 180., includeBoundary, forceParametrizablePatches,
+                                 curveAngle * math.pi / 180.)
 gmsh.model.mesh.createGeometry()
 
 # Зададим объём по считанной поверхности
@@ -159,17 +163,18 @@ for i in range(0, len(nodeTags)):
     # Индексация в gmsh начинается с 1, а не с нуля. Ну штош, значит так.
     assert (i == nodeTags[i] - 1)
 # И ещё проверим, что в тетраэдрах что-то похожее на правду лежит.
-assert(len(tetrsNodesTags) % 4 == 0)
-
-# TODO: неплохо бы полноценно данные сетки проверять, да
+assert (len(tetrsNodesTags) % 4 == 0)
 
 mesh = CalcMesh(nodesCoord, tetrsNodesTags)
 
 tau = 0.01
+fin_t = 2.0
+i = 0
 
-for i in range(100):
+while mesh.t < fin_t:
     print('Making step ', i)
     mesh.move(tau)
     mesh.snapshot(i)
+    i += 1
 
 gmsh.finalize()

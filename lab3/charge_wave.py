@@ -1,13 +1,13 @@
 import dolfin as df
 import math
 
-s = 128
+s = 512
 mesh = df.UnitSquareMesh(s, s)
 V = df.FunctionSpace(mesh, 'P', 1)
-c = 2
+c = 0.3
 dt = 0.004
 start_t = 0.0
-end_t = 0.8
+end_t = 2.0
 
 def boundary(x, on_boundary):
     return on_boundary
@@ -43,7 +43,7 @@ ampl = 0.008
 omega = 24
 # x = lambda t: x0 + ampl * math.cos(3 * t)
 x = lambda t: x0
-y = lambda t: y0 + 2 * ampl * math.sin(omega * t + math.pi / 4)
+y = lambda t: y0 + ampl * math.sin(omega * t + math.pi / 4)
 q = 1
 
 t = start_t
